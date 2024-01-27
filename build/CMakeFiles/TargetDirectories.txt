@@ -1,0 +1,5 @@
+C:/Users/conno/buddytest/build/CMakeFiles/buddy_lib.dir
+C:/Users/conno/buddytest/build/CMakeFiles/buddy_engine.dir
+C:/Users/conno/buddytest/build/CMakeFiles/PACKAGE.dir
+C:/Users/conno/buddytest/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/conno/buddytest/build/CMakeFiles/ZERO_CHECK.dir
