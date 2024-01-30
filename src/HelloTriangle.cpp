@@ -155,7 +155,10 @@ class HelloTriangleApplication {
         GLFWwindow *window; // acutal window
         VkInstance instance; // actual instance
         VkDebugUtilsMessengerEXT debugMessenger; //debug messenger (if applicable)
-        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE; // Physical device (GPU)
+        VkPhysicalDeviceProperties physicalDeviceProperties{};
+        VkDevice device = VK_NULL_HANDLE; // Logical device
+        VkQueue graphicsQueue;
 
         void initWindow() {
             // Initialize glfw library
@@ -191,12 +194,17 @@ class HelloTriangleApplication {
             createInfo.pApplicationInfo = &appInfo;
 
             // Get number of validation layers and their names
+            // Create debug messenger (if applicable)
+            VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
             if (enableValidationLayers) {
                 createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
                 createInfo.ppEnabledLayerNames = validationLayers.data();
+                populateDebugMessengerCreateInfo(debugCreateInfo);
+                createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
             }
             else {
                 createInfo.enabledLayerCount = 0;
+                createInfo.pNext = nullptr;
             }
 
             // Use our function to get the extension names and add functionality for debug callbacks
@@ -206,20 +214,6 @@ class HelloTriangleApplication {
 
             // Initialize the instance
             VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
-
-            // Create debug messenger (if applicable)
-            VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-            if (enableValidationLayers) {
-                createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-                createInfo.ppEnabledLayerNames = validationLayers.data();
-
-                populateDebugMessengerCreateInfo(debugCreateInfo);
-                createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
-            }
-            else {
-                createInfo.enabledLayerCount = 0;
-                createInfo.pNext = nullptr;
-            }
 
             // See if the instance was successfully created
             if (result != VK_SUCCESS) {
@@ -234,6 +228,7 @@ class HelloTriangleApplication {
             createInstance();
             setupDebugMessenger();
             pickPhysicalDevice();
+            createLogicalDevice();
         }
 
         // Check for existence of a graphics card
@@ -271,6 +266,56 @@ class HelloTriangleApplication {
             if (physicalDevice == VK_NULL_HANDLE) {
                 throw std::runtime_error("Failed to find a suitable GPU!!!");
             }
+
+            
+            vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+            std::cout << "Most suitable device found: " <<  physicalDeviceProperties.deviceName << std::endl;
+        }
+
+        // Make a logical device corresponding to our physical device
+        void createLogicalDevice() {
+            QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+            // Holds information about the logical device queue creation
+            VkDeviceQueueCreateInfo queueCreateInfo{};
+            queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+            queueCreateInfo.queueCount = 1;
+
+            // queue priority for execution in command buffer
+            float queuePriority = 1.0f;
+            queueCreateInfo.pQueuePriorities = &queuePriority;
+
+            // Set of devices features we wanna use (none for now)
+            VkPhysicalDeviceFeatures deviceFeatures{};
+
+            // Logical device creation information
+            VkDeviceCreateInfo createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+            createInfo.pQueueCreateInfos = &queueCreateInfo;
+            createInfo.queueCreateInfoCount = 1; // Hard code 1 queue for now
+            createInfo.pEnabledFeatures = &deviceFeatures;
+
+            // Device specific extensions and validation layers
+            // ================================================
+            createInfo.enabledExtensionCount = 0;
+
+            // Get number of validation layers
+            if (enableValidationLayers) {
+                createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+                createInfo.ppEnabledLayerNames = validationLayers.data();
+            }
+            else {
+                createInfo.enabledLayerCount = 0;
+            }
+
+            // Don't need to worry about any device specific extensions (for now)
+            if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to create logical device!!!");
+            }
+
+            // Get a handle to the device queue
+            vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
         }
 
         // Check if the GPU supports all necessary operations
@@ -351,6 +396,8 @@ class HelloTriangleApplication {
 
         // Destroy all your shit
         void cleanup() {
+            vkDestroyDevice(device, nullptr);
+
             // If we're using validation layers, need to destroy the debug messenger
             if (enableValidationLayers) {
                 DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
