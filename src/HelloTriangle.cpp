@@ -190,6 +190,7 @@ class HelloTriangleApplication {
         std::vector<VkImage> swapChainImages; // For retrieving handles of swap chain imgs
         VkFormat swapChainImageFormat; // img format for swap chain
         VkExtent2D swapChainExtent; // extent for swap chain
+        std::vector<VkImageView> swapChainImageViews; // For accessing swap chain images
 
         void initWindow() {
             // Initialize glfw library
@@ -262,6 +263,39 @@ class HelloTriangleApplication {
             pickPhysicalDevice();
             createLogicalDevice();
             createSwapChain();
+            createImageViews();
+        }
+
+        // Creates the image views for the swap chain
+        void createImageViews() {
+            swapChainImageViews.resize(swapChainImages.size());
+
+            for (size_t i=0; i < swapChainImages.size(); i++) {
+                VkImageViewCreateInfo createInfo{};
+                createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+                createInfo.image = swapChainImages[i];
+
+                // How image data should be interpreted
+                createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+                createInfo.format = swapChainImageFormat;
+
+                // For "swizzling" colors around if we want
+                createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+                createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+                createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+                createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+                // What the images purpose is and what parts should be accessed
+                createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                createInfo.subresourceRange.baseMipLevel = 0;
+                createInfo.subresourceRange.levelCount = 1;
+                createInfo.subresourceRange.baseArrayLayer = 0;
+                createInfo.subresourceRange.layerCount = 1; // Multiple layers for 3D stereoscopic application (VR)
+
+                if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
+                    throw std::runtime_error("failed to create image views!");
+                }
+            }
         }
 
         // Creates the mf swap chain
@@ -320,8 +354,6 @@ class HelloTriangleApplication {
             // For handling an invalid unoptimized swapchain
             // e.g. if window was resized, need reference to old swap chain
             createInfo.oldSwapchain = VK_NULL_HANDLE;
-
-            VkSwapchainKHR swapChain;
 
             // Create this mf gyat damn swap chain
             if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
@@ -624,6 +656,10 @@ class HelloTriangleApplication {
 
         // Destroy all your shit
         void cleanup() {
+            for (auto imageView : swapChainImageViews) {
+                vkDestroyImageView(device, imageView, nullptr);
+            }
+
             vkDestroySwapchainKHR(device, swapChain, nullptr);
             vkDestroyDevice(device, nullptr);
 
