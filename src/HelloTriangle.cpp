@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <limits>
 #include <algorithm>
+#include <fstream>
 
 // Window width & height
 const uint32_t WIDTH = 800;
@@ -264,6 +265,74 @@ class HelloTriangleApplication {
             createLogicalDevice();
             createSwapChain();
             createImageViews();
+            createGraphicsPipeline();
+        }
+
+        // Initializes the graphics pipeline
+        void createGraphicsPipeline() {
+            auto vertShaderCode = readFile("shaders/vert.spv");
+            auto fragShaderCode = readFile("shaders/frag.spv");
+
+            // Create shader modules
+            VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+            VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+            
+            // Specify vertex shader pipeline stage
+            VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+            vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; // Pipeline stage
+            vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT; // specifies vertex shader
+            vertShaderStageInfo.module = vertShaderModule; // actual module
+            vertShaderStageInfo.pName  = "main"; // specify entry point
+            vertShaderStageInfo.pSpecializationInfo = nullptr;
+            //pSpecializationInfo would allow us to define values for shader constants
+
+            // Specify fragment shader pipeline stage
+            VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+            fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+            fragShaderStageInfo.module = fragShaderModule;
+            fragShaderStageInfo.pName = "main";
+
+            VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+            // Destroy shader modules
+            vkDestroyShaderModule(device, fragShaderModule, nullptr);
+            vkDestroyShaderModule(device, vertShaderModule, nullptr);
+        }
+
+        // Reads a binary file into a byte array
+        static std::vector<char> readFile(const std::string &filename) {
+            // start reading at end of file to get filesize
+            std::ifstream file(filename, std::ios::ate | std::ios::binary);
+            if (!file.is_open()) {
+                throw std::runtime_error("failed to open file!");
+            }
+
+            size_t fileSize = (size_t) file.tellg();
+            std::vector<char> buffer(fileSize);
+
+            file.seekg(0);
+            file.read(buffer.data(), fileSize);
+
+            file.close();
+
+            return buffer;
+        }
+
+        // Create the shader
+        VkShaderModule createShaderModule(const std::vector<char>& code) {
+            VkShaderModuleCreateInfo createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+            createInfo.codeSize = code.size();
+            createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+
+            VkShaderModule shaderModule;
+            if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create shader module!");
+            }
+
+            return shaderModule;
         }
 
         // Creates the image views for the swap chain
@@ -672,7 +741,8 @@ class HelloTriangleApplication {
             vkDestroySurfaceKHR(instance, surface, nullptr);
             vkDestroyInstance(instance, nullptr);
             glfwDestroyWindow(window);
-            glfwTerminate();   
+            glfwTerminate();
+
         }
 };
 
